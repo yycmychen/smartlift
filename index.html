@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>QR Code 智能提举导引系统 | 企业专业版</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Plus+Jakarta+Sans:wght@400;600;800&display=swap');
+        :root { --primary: #2563eb; --bg: #fdfdff; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg); overflow: hidden; -webkit-tap-highlight-color: transparent; }
+        .font-space { font-family: 'Space Grotesk', sans-serif; }
+        
+        .glass { background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.3); }
+        .neo-shadow { box-shadow: 0 20px 40px -15px rgba(37, 99, 235, 0.15); }
+        
+        .radar-scan { width: 100%; height: 50%; background: linear-gradient(180deg, rgba(37, 99, 235, 0) 0%, rgba(37, 99, 235, 0.2) 100%); position: absolute; top: -50%; animation: radar 3s infinite cubic-bezier(0.4, 0, 0.6, 1); pointer-events: none; border-bottom: 2px solid var(--primary); }
+        @keyframes radar { 0% { top: -50%; opacity: 0; } 50% { opacity: 1; } 100% { top: 100%; opacity: 0; } }
+        
+        .pulse { animation: pulse-ring 2s infinite; }
+        @keyframes pulse-ring { 0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.4); } 70% { transform: scale(1); box-shadow: 0 0 0 15px rgba(37, 99, 235, 0); } 100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(37, 99, 235, 0); } }
+        
+        .transition-all { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .hidden { display: none; }
+        
+        /* 隐藏滚动条但保留功能 */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="max-w-md mx-auto h-screen flex flex-col relative text-slate-900 shadow-2xl overflow-hidden bg-white">
+
+    <!-- 登录界面 -->
+    <div id="loginStage" class="fixed inset-0 z-[100] bg-white flex flex-col items-center justify-center p-10 transition-all duration-700">
+        <div class="w-full max-w-xs space-y-12">
+            <div class="relative w-24 h-24 mx-auto">
+                <div class="absolute inset-0 bg-blue-600 rounded-[2.5rem] rotate-12 pulse"></div>
+                <div class="relative bg-white h-full w-full rounded-[2.5rem] flex items-center justify-center shadow-2xl">
+                    <svg class="w-10 h-10 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" /></svg>
+                </div>
+            </div>
+            <div class="text-center space-y-2">
+                <h1 class="text-3xl font-black tracking-tight text-slate-800">QR VISION</h1>
+                <p class="text-slate-400 text-sm font-semibold tracking-widest uppercase font-space">Intelligent Lifting System</p>
+            </div>
+            <div class="space-y-4">
+                <div class="bg-slate-50 rounded-3xl p-2 border-2 border-transparent focus-within:border-blue-100 transition-all">
+                    <input id="loginUser" type="text" class="w-full bg-transparent p-4 outline-none text-center font-bold text-lg" placeholder="请输入员工工号">
+                </div>
+                <button onclick="handleLogin()" class="w-full py-5 bg-blue-600 text-white rounded-3xl font-bold shadow-xl shadow-blue-200 active:scale-95 transition-all">验证并进入系统</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 主容器 -->
+    <div id="appContent" class="hidden flex flex-col h-full opacity-0 transition-all duration-700">
+        <header class="p-6 flex items-center justify-between shrink-0">
+            <div>
+                <p class="text-[10px] font-bold text-blue-600 uppercase tracking-[0.2em] mb-1">System Operational</p>
+                <h2 id="pageTitle" class="text-2xl font-black text-slate-800 tracking-tight">智能识别终端</h2>
+            </div>
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-400 cursor-pointer" onclick="handleLogout()">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+                </div>
+            </div>
+        </header>
+
+        <main class="flex-1 overflow-y-auto px-6 pb-28 no-scrollbar">
+            <!-- 扫描页 -->
+            <div id="scanPage" class="h-full flex flex-col items-center pt-8">
+                <div class="relative w-full aspect-square max-w-[300px] bg-slate-900 rounded-[3.5rem] shadow-2xl overflow-hidden border-[6px] border-white group neo-shadow">
+                    <video id="videoPreview" class="hidden w-full h-full object-cover grayscale-[0.3]" autoplay muted playsinline></video>
+                    <div id="scanPlaceholder" onclick="startCamera()" class="absolute inset-0 flex flex-col items-center justify-center cursor-pointer transition-all duration-500 bg-slate-900">
+                        <div class="w-20 h-20 bg-blue-600/10 rounded-full flex items-center justify-center mb-6">
+                            <div class="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-lg">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /></svg>
+                            </div>
+                        </div>
+                        <p id="scanStatusText" class="text-[11px] font-bold text-blue-400 tracking-[0.15em] uppercase text-center max-w-[180px] leading-relaxed">点击启动摄像头</p>
+                    </div>
+                    <div class="radar-scan"></div>
+                </div>
+                
+                <div class="mt-8 w-full space-y-4">
+                    <div class="bg-white p-6 rounded-[2rem] border border-slate-100 neo-shadow flex justify-between items-center">
+                        <div class="space-y-1">
+                            <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">环境状态</p>
+                            <p class="text-sm font-bold text-slate-700">照度：符合标准</p>
+                        </div>
+                        <div class="h-8 w-[1px] bg-slate-100"></div>
+                        <div class="text-right space-y-1">
+                            <p class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">采样率</p>
+                            <p class="font-space text-sm font-bold text-slate-700">60 FPS</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-900 p-6 rounded-[2rem] shadow-xl flex justify-between items-center text-white">
+                        <div>
+                            <p class="text-[9px] font-bold text-blue-400 uppercase tracking-widest mb-1">本次作业累计搬运总重</p>
+                            <h4 class="text-2xl font-space font-bold"><span id="totalWeightDisplay">0.0</span> <span class="text-xs opacity-60">KG</span></h4>
+                        </div>
+                        <div class="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 货物管理页 -->
+            <div id="cargoPage" class="hidden space-y-6 animate-in slide-in-from-bottom-4 duration-500">
+                <div class="bg-blue-600 p-6 rounded-[2rem] shadow-xl text-white flex justify-between items-center">
+                    <div>
+                        <p class="text-xs font-bold opacity-80 uppercase tracking-widest mb-1">Cargo Management</p>
+                        <h3 class="text-xl font-black">货物登记中心</h3>
+                    </div>
+                    <button onclick="showCreateForm()" class="bg-white text-blue-600 w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg active:scale-90 transition-transform">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M12 4v16m8-8H4" /></svg>
+                    </button>
+                </div>
+
+                <!-- 登记表单 (浮窗覆盖) -->
+                <div id="createForm" class="hidden bg-white p-6 rounded-[2.5rem] border-2 border-slate-50 space-y-6 neo-shadow">
+                    <div class="flex justify-between items-center">
+                        <h4 class="font-black text-slate-800 uppercase tracking-wider text-sm">录入新货物</h4>
+                        <button onclick="hideCreateForm()" class="text-slate-400">取消</button>
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-400 uppercase ml-2 tracking-widest">称重数据 (KG)</label>
+                        <input id="inputWeight" type="number" class="w-full p-4 rounded-2xl bg-slate-50 text-xl font-black border-none" placeholder="0.0">
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-[10px] font-black text-slate-400 uppercase ml-2 tracking-widest">重心分布状态</label>
+                        <div class="flex gap-2">
+                            <button data-val="偏左" onclick="setBalance('偏左')" class="balance-option flex-1 py-4 rounded-xl bg-slate-50 text-slate-400 text-xs font-bold transition-all">偏左</button>
+                            <button data-val="居中" onclick="setBalance('居中')" class="balance-option flex-1 py-4 rounded-xl bg-blue-600 text-white shadow-lg text-xs font-bold transition-all">居中</button>
+                            <button data-val="偏右" onclick="setBalance('偏右')" class="balance-option flex-1 py-4 rounded-xl bg-slate-50 text-slate-400 text-xs font-bold transition-all">偏右</button>
+                        </div>
+                    </div>
+                    <button onclick="generateQR()" class="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold shadow-xl active:scale-95 transition-all">生成并保存</button>
+                </div>
+
+                <!-- 扫码结果二维码展示 -->
+                <div id="qrResult" class="hidden text-center p-6 bg-white rounded-[2rem] border shadow-2xl">
+                    <div class="bg-slate-50 p-4 rounded-3xl mb-4 inline-block">
+                        <img id="qrImage" class="w-40 h-40 mx-auto mix-blend-multiply">
+                    </div>
+                    <p id="qrLabel" class="text-lg font-space font-bold text-slate-800 mb-4"></p>
+                    <button onclick="hideQRResult()" class="w-full py-3 bg-blue-600 text-white rounded-xl font-bold text-sm">完成登记</button>
+                </div>
+
+                <!-- 历史登记列表 -->
+                <div class="space-y-4">
+                    <div class="flex justify-between items-center px-2">
+                        <h4 class="text-xs font-black text-slate-400 uppercase tracking-widest">历史登记记录</h4>
+                        <span id="historyCount" class="text-[10px] bg-slate-100 px-2 py-0.5 rounded-full font-bold text-slate-500">0 项</span>
+                    </div>
+                    <div id="cargoHistoryList" class="space-y-3">
+                        <!-- 动态填充 -->
+                        <div class="text-center py-10 opacity-30 italic text-sm">暂无登记记录</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 账户中心页 -->
+            <div id="profilePage" class="hidden space-y-6 pt-6 animate-in fade-in duration-500">
+                <div class="bg-white p-8 rounded-[3rem] border border-slate-100 neo-shadow text-center">
+                    <div class="relative w-28 h-28 mx-auto mb-6">
+                        <div class="absolute inset-0 bg-blue-600/10 rounded-[2.5rem] rotate-6"></div>
+                        <div class="relative w-full h-full bg-blue-50 text-blue-600 rounded-[2.5rem] flex items-center justify-center text-4xl shadow-inner border border-blue-100/50">
+                            <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                        </div>
+                    </div>
+                    <h3 id="profileUserName" class="text-2xl font-black text-slate-800">未登录</h3>
+                    <div class="mt-4 inline-flex items-center gap-2 bg-blue-50 px-4 py-1.5 rounded-full">
+                        <div class="w-1.5 h-1.5 bg-blue-600 rounded-full animate-pulse"></div>
+                        <span class="text-[10px] font-bold text-blue-600 uppercase tracking-widest font-space" id="profileUserID">ID: --</span>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- 底部导航 -->
+        <nav class="fixed bottom-6 left-6 right-6 h-20 glass rounded-[2.5rem] shadow-2xl flex items-center justify-around px-4 z-50 neo-shadow">
+            <button id="profileBtn" onclick="switchTab('profile')" class="flex flex-col items-center gap-1.5 text-slate-400 transition-all p-3">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+            </button>
+            <button id="scanBtn" onclick="switchTab('scan')" class="flex flex-col items-center gap-1.5 text-blue-500 transition-all p-3 relative">
+                <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01" /></svg>
+            </button>
+            <button id="cargoBtn" onclick="switchTab('cargo')" class="flex flex-col items-center gap-1.5 text-slate-400 transition-all p-3">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+            </button>
+        </nav>
+    </div>
+
+    <!-- 预警提示框 -->
+    <div id="alertPanel" class="hidden fixed inset-0 z-[120] flex items-center justify-center p-8 transition-all duration-300 opacity-0">
+        <div class="absolute inset-0 bg-red-950/80 backdrop-blur-sm"></div>
+        <div class="relative bg-white w-full rounded-[3.5rem] p-10 text-center space-y-6 shadow-2xl border-4 border-red-500">
+            <div class="w-20 h-20 bg-red-500 rounded-full mx-auto flex items-center justify-center text-white shadow-xl animate-bounce">
+                <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            <div class="space-y-2">
+                <h3 class="text-2xl font-black text-red-600">负荷预警</h3>
+                <p id="alertMsg" class="text-sm font-bold text-slate-600 leading-relaxed"></p>
+            </div>
+            <button onclick="closeAlert()" class="w-full py-5 bg-red-600 text-white rounded-[2rem] font-black text-sm uppercase tracking-widest shadow-lg active:scale-95 transition-all">确认并知晓风险</button>
+        </div>
+    </div>
+
+    <!-- 扫描结果弹窗 -->
+    <div id="resultPanel" class="hidden fixed inset-0 z-[110] flex items-center justify-center p-8 transition-all duration-500 opacity-0">
+        <div class="absolute inset-0 bg-slate-900/60 backdrop-blur-md" onclick="closeResult()"></div>
+        <div class="relative bg-white w-full rounded-[3.5rem] p-10 text-center space-y-10 shadow-2xl">
+            <div class="w-20 h-20 bg-green-500 rounded-[2rem] mx-auto flex items-center justify-center text-white shadow-xl rotate-3">
+                <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            <div class="space-y-4">
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-[0.4em]">Identification Result</p>
+                <div class="flex flex-col items-center">
+                    <p class="text-7xl font-space font-bold text-slate-900 tracking-tighter"><span id="resW">--</span><span class="text-xl text-blue-600 ml-1">KG</span></p>
+                    <div class="mt-6 flex items-center gap-2 bg-blue-50 px-6 py-2 rounded-full">
+                        <span id="resB" class="text-[11px] font-black text-blue-800 uppercase tracking-widest">分析结果生成中</span>
+                    </div>
+                </div>
+            </div>
+            <button onclick="processAndCloseResult()" class="w-full py-5 bg-slate-900 text-white rounded-[2rem] font-black text-sm uppercase tracking-[0.2em] hover:bg-blue-600 transition-colors">确认搬运并继续</button>
+        </div>
+    </div>
+
+    <script>
+        // 核心变量
+        let currentBalance = "居中";
+        let videoStream = null;
+        let isScanning = false;
+        let totalWeight = 0.0;
+        let lastScannedWeight = 0.0;
+        let animationFrameId = null;
+        let cargoHistory = JSON.parse(localStorage.getItem('qr_cargo_history') || "[]");
+
+        function el(id) { return document.getElementById(id); }
+
+        // 登录管理
+        function handleLogin() {
+            const userId = el('loginUser').value || "OP-1024";
+            localStorage.setItem('qr_system_worker_id', userId);
+            el('loginStage').style.opacity = '0';
+            setTimeout(() => {
+                el('loginStage').classList.add('hidden');
+                el('appContent').classList.remove('hidden');
+                setTimeout(() => el('appContent').style.opacity = '1', 50);
+                el('profileUserName').innerText = "作业人员 " + userId.split('-').pop();
+                el('profileUserID').innerText = "UID: " + userId;
+                renderHistory();
+                switchTab('scan');
+            }, 500);
+        }
+
+        function handleLogout() {
+            stopCamera();
+            localStorage.removeItem('qr_system_worker_id');
+            location.reload();
+        }
+
+        // 导航切换
+        function switchTab(tab) {
+            // 每次切换时强制彻底关闭摄像头
+            stopCamera();
+            
+            ['profile', 'scan', 'cargo'].forEach(t => {
+                el(t + 'Page').classList.add('hidden');
+                el(t + 'Btn').classList.replace('text-blue-500', 'text-slate-400');
+            });
+            el(tab + 'Page').classList.remove('hidden');
+            el(tab + 'Btn').classList.replace('text-slate-400', 'text-blue-500');
+            el('pageTitle').innerText = { profile: '账户中心', scan: '智能扫描终端', cargo: '货物登记管理' }[tab];
+            
+            // 如果切回到扫描页且之前是开启状态，允许手动或自动重新启动
+            if (tab === 'scan') {
+                el('scanPlaceholder').classList.remove('hidden');
+                el('scanPlaceholder').style.opacity = '1';
+                el('videoPreview').classList.add('hidden');
+            }
+        }
+
+        // 摄像头控制优化
+        async function startCamera() {
+            if (isScanning) return;
+            el('scanStatusText').innerText = "摄像头启动中...";
+            
+            try {
+                // 请求新的媒体流
+                videoStream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "environment", width: { ideal: 1080 }, height: { ideal: 1080 } } 
+                });
+                
+                const video = el('videoPreview');
+                video.srcObject = videoStream;
+                
+                // 等待元数据加载并播放
+                video.onloadedmetadata = () => {
+                    video.play();
+                    isScanning = true;
+                    animationFrameId = requestAnimationFrame(tick);
+                    el('scanPlaceholder').style.opacity = '0';
+                    setTimeout(() => el('scanPlaceholder').classList.add('hidden'), 300);
+                    video.classList.remove('hidden');
+                    el('scanStatusText').innerText = "实时数据分析中";
+                };
+            } catch (err) {
+                console.error("Camera Error:", err);
+                el('scanStatusText').innerText = "摄像头启动失败，请检查权限";
+            }
+        }
+
+        function stopCamera() {
+            isScanning = false;
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+            if (videoStream) {
+                videoStream.getTracks().forEach(track => track.stop());
+                videoStream = null;
+            }
+            const video = el('videoPreview');
+            video.pause();
+            video.srcObject = null;
+        }
+
+        // 扫码核心逻辑
+        function tick() {
+            if (!isScanning) return;
+            const video = el('videoPreview');
+            if (video.readyState === video.HAVE_ENOUGH_DATA) {
+                const canvas = document.createElement('canvas');
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const code = jsQR(imageData.data, imageData.width, imageData.height);
+                
+                if (code) {
+                    try {
+                        const data = JSON.parse(code.data);
+                        if (data.w) {
+                            lastScannedWeight = parseFloat(data.w) || 0;
+                            el('resW').innerText = data.w;
+                            el('resB').innerText = "重心偏移状态: " + (data.b || "未知");
+                            const panel = el('resultPanel');
+                            panel.classList.remove('hidden');
+                            setTimeout(() => panel.style.opacity = '1', 50);
+                            stopCamera(); // 识别到后立即停止，防止重复触发
+                            return; 
+                        }
+                    } catch (e) { console.warn("Invalid QR Content"); }
+                }
+            }
+            animationFrameId = requestAnimationFrame(tick);
+        }
+
+        // 结果处理与预警
+        function processAndCloseResult() {
+            const currentWeight = lastScannedWeight;
+            const newTotalWeight = totalWeight + currentWeight;
+            
+            let alertMsg = "";
+            if (currentWeight > 25) {
+                alertMsg = `检测到单次货物重达 ${currentWeight.toFixed(1)}kg（超过25kg限值），请务必协同作业或使用机械辅助！`;
+            } else if (newTotalWeight > 100) {
+                alertMsg = `累计搬运量已达 ${newTotalWeight.toFixed(1)}kg（超过100kg限值），建议立即休息，防止肌肉疲劳损伤！`;
+            }
+
+            if (alertMsg) showAlert(alertMsg);
+
+            totalWeight = newTotalWeight;
+            el('totalWeightDisplay').innerText = totalWeight.toFixed(1);
+            closeResult();
+        }
+
+        function showAlert(msg) {
+            el('alertMsg').innerText = msg;
+            const panel = el('alertPanel');
+            panel.classList.remove('hidden');
+            setTimeout(() => panel.style.opacity = '1', 50);
+        }
+
+        function closeAlert() {
+            const panel = el('alertPanel');
+            panel.style.opacity = '0';
+            setTimeout(() => panel.classList.add('hidden'), 300);
+        }
+
+        function closeResult() {
+            const panel = el('resultPanel');
+            panel.style.opacity = '0';
+            setTimeout(() => {
+                panel.classList.add('hidden');
+                if (el('scanPage').classList.contains('hidden') === false) {
+                    startCamera(); // 如果还在扫描页，自动重新开启
+                }
+            }, 300);
+        }
+
+        // 货物历史记录管理
+        function showCreateForm() { el('createForm').classList.remove('hidden'); }
+        function hideCreateForm() { el('createForm').classList.add('hidden'); }
+        function hideQRResult() { el('qrResult').classList.add('hidden'); }
+
+        function setBalance(val) {
+            currentBalance = val;
+            document.querySelectorAll('.balance-option').forEach(btn => {
+                const isActive = btn.dataset.val === val;
+                btn.className = `balance-option flex-1 py-4 rounded-xl text-xs font-bold transition-all ${isActive ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'bg-slate-50 text-slate-400'}`;
+            });
+        }
+
+        function generateQR() {
+            const weight = el('inputWeight').value;
+            if (!weight) return;
+            
+            const id = "PKG-" + Math.random().toString(36).substr(2, 4).toUpperCase();
+            const time = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+            const item = { id, w: weight, b: currentBalance, time };
+            
+            // 保存到历史
+            cargoHistory.unshift(item);
+            if (cargoHistory.length > 20) cargoHistory.pop(); // 保留最近20条
+            localStorage.setItem('qr_cargo_history', JSON.stringify(cargoHistory));
+            
+            // 生成二维码
+            const qrContent = JSON.stringify({ id, w: weight, b: currentBalance });
+            el('qrImage').src = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(qrContent)}`;
+            el('qrLabel').innerText = "标识码: " + id;
+            
+            el('createForm').classList.add('hidden');
+            el('qrResult').classList.remove('hidden');
+            renderHistory();
+        }
+
+        function renderHistory() {
+            const list = el('cargoHistoryList');
+            el('historyCount').innerText = `${cargoHistory.length} 项`;
+            if (cargoHistory.length === 0) {
+                list.innerHTML = '<div class="text-center py-10 opacity-30 italic text-sm">暂无登记记录</div>';
+                return;
+            }
+            
+            list.innerHTML = cargoHistory.map(item => `
+                <div class="bg-white p-4 rounded-2xl border border-slate-100 flex items-center justify-between animate-in fade-in slide-in-from-right-2">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center text-blue-600">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+                        </div>
+                        <div>
+                            <p class="text-xs font-black text-slate-800">${item.id}</p>
+                            <p class="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">${item.time} | 重心${item.b}</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-lg font-space font-bold text-slate-900">${item.w}<span class="text-[10px] ml-0.5 text-blue-600">KG</span></p>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        window.onload = () => {
+            const savedId = localStorage.getItem('qr_system_worker_id');
+            if (savedId) {
+                el('loginUser').value = savedId;
+                handleLogin();
+            }
+        };
+    </script>
+</body>
+</html>
